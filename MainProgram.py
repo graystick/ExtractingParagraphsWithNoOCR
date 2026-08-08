@@ -61,12 +61,14 @@ def findTextInPage(hist_TextBlock, minGap = 1, minLengthofText = 1):
     return textBlocks_SE
 
 def colDetection(img_binary, minGap_col = 15, minLengthofText_col = 30):
-    imageProjection_col = np.sum(img_binary, axis=0) ##sum of pixels in each column
+    imageProjection_col = np.sum(img_binary, axis=0) ##sum of pixels in each column across a whole page
     
     textColumns = findTextInPage(imageProjection_col, minGap =minGap_col, minLengthofText = minLengthofText_col) ##polymorph the columns width and gap into the findTextinPage function
     
     return textColumns ##uses the findTextinPage function to get the column width and gap
 
-
-
+def lineDetection(coldetection_result, minGap_row = 2, minHeight_row = 4):
+    imageProjection_row = np.sum(coldetection_result, axis = 1)
+    textRows = findTextInPage(imageProjection_row, minGap = minGap_row, minLengthofText = minHeight_row)
     
+    return textRows
