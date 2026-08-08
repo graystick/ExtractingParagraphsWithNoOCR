@@ -13,6 +13,13 @@ from matplotlib import pyplot as pt
 def main():
     return True
 
+##func for detecting tables
+
+##func for detecting images in papers
+
+##mask for tables and images
+
+
 def pageToBinary(image_path): ##take a page from the folder and converts it to grayscale, then thresholds it to become a binary image for processing the text
     page = cv2.imread(image_path)
     pageGrayscale = cv2.cvtColor(page, cv2.COLOR_BGR2GRAY)
