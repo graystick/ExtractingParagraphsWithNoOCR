@@ -67,7 +67,7 @@ def colDetection(img_binary, minGap_col = 15, minLengthofText_col = 30):
     
     return textColumns ##uses the findTextinPage function to get the column width and gap
 
-def lineDetection(coldetection_result, minGap_row = 2, minHeight_row = 4):
+def rowDetection(coldetection_result, minGap_row = 2, minHeight_row = 4):
     imageProjection_row = np.sum(coldetection_result, axis = 1)
     textRows = findTextInPage(imageProjection_row, minGap = minGap_row, minLengthofText = minHeight_row)
     
