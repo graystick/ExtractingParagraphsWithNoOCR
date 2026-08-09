@@ -61,7 +61,7 @@ def pageToBinary(image_path): ##take a page from the folder and converts it to g
     
     _, pageBinary = cv2.threshold(pageGrayscale, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
     return page, pageBinary
-##page to Binary is gonna be used quite a few times so we made it a function for easy access
+
     
 
 
