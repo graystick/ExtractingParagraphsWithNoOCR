@@ -62,8 +62,6 @@ def pageToBinary(image_path): ##take a page from the folder and converts it to g
     _, pageBinary = cv2.threshold(pageGrayscale, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
     return page, pageBinary
 
-    
-
 
 ##hist_TextBlock = reads histogram projections where alphabetical characters show up
 def findTextInPage(hist_TextBlock, minGap = 1, minLengthofText = 1):
@@ -102,6 +100,8 @@ def colDetection(img_binary, minGap_col = 15, minLengthofText_col = 30):
     
     return textColumns ##uses the findTextinPage function to get the column width and gap
 
+
+    ##rowDetection() function works the same in theory with the colDetection() function where we take the sum of pixels in each row across a whole page and then put the values of the minimum gap length and height and put it in the findTextinPage() function to get our rows
 def rowDetection(coldetection_result, minGap_row = 2, minHeight_row = 4):
     imageProjection_row = np.sum(coldetection_result, axis = 1)
     textRows = findTextInPage(imageProjection_row, minGap = minGap_row, minLengthofText = minHeight_row)
