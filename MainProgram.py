@@ -26,7 +26,9 @@ def tableDetection(img_binary, minWidth_table = 150, minHeight_table = 40, minIn
     linesX = cv2.morphologyEx(img_binary, cv2.MORPH_OPEN, kernelX)  ##remove the noise from the kernel for both width and height
     linesY = cv2.morphologyEx(img_binary, cv2.MORPH_OPEN, kernelY)
     
-    intersect = cv2.bitwise_and(linesX, linesY) 
+    intersect = cv2.bitwise_and(linesX, linesY) ##where the lines overlap
+    
+    ##dilates all the table border lines so that they all merge into one region creating an intersection
     tableline_mask = cv2.bitwise_or(linesX, linesY)
     kernelmerge = cv2.getStructuringElement(cv2.MORPH_RECT, 15,15)
     tableline_mask = cv2.dilate(tableline_mask, kernelmerge, iterations=2)
@@ -38,6 +40,7 @@ def tableDetection(img_binary, minWidth_table = 150, minHeight_table = 40, minIn
         x,y,w,h = cv2.boundingRect(i)
         if w < minWidth_table or h < minHeight_table:
             continue
+        ## confirmation that the lines actually do intersect so that paragraph text isnt accidentally removed in the final process
         region = intersect[y:y + h, x:x + w]
         nPoints = cv2.connectedComponentsWithStats(region, connectingSections=8)[0] - 1
         
