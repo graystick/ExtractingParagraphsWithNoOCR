@@ -8,10 +8,75 @@ Created on Sat Aug  8 09:23:28 2026
 import cv2
 import numpy as np
 from matplotlib import pyplot as pt
+import os
 
 
 def main():
-    return True
+    if __name__ == '__main__':
+        output_dir = 'paragraphs'
+
+    for i in range(1, 9):
+        filename = f"{i:03d}.png"
+        path = os.path.join(filename)
+
+        if not os.path.exists(path):
+            print(f"Skipping {filename} (not found)")
+            continue
+        
+        boxes, binary = pageToBinary(path)
+        tableBoxes = tableDetection(binary)
+        images = imageDetection(binary)
+        
+        masked = maskTablesandImages(
+            binary,
+            tableBoxes,
+            images
+        )
+        
+        colresult = colDetection(binary)
+        rowresult = rowDetection(colresult)
+
+        print("Detected tables:", tableBoxes)
+
+        pt.figure(figsize=(10, 12))
+        pt.imshow(binary, cmap='gray')
+
+        for x1, y1, x2, y2 in tableBoxes:
+            pt.gca().add_patch(
+                pt.Rectangle(
+                    (x1, y1),
+                    x2 - x1,
+                    y2 - y1,
+                    fill=False,
+                    edgecolor='red',
+                    linewidth=2
+                )
+            )
+
+        pt.title('Detected Tables')
+        pt.axis('off')
+        pt.show()
+
+        print("Detected images:", images)
+
+        pt.figure(figsize=(10, 12))
+        pt.imshow(binary, cmap='gray')
+
+        for x1, y1, x2, y2 in images:
+            pt.gca().add_patch(
+                pt.Rectangle(
+                    (x1, y1),
+                    x2 - x1,
+                    y2 - y1,
+                    fill=False,
+                    edgecolor='blue',
+                    linewidth=2
+                )
+            )
+
+        pt.title('Detected Images')
+        pt.axis('off')
+        pt.show()
 
 ##tables in the papers have long border lines so we dilate these so that all the lines merge into a single blob of black pixels in regardless of how far apart they are, and since paragraph text never has these long lines we can detect the tables from that
 def tableDetection(img_binary, minWidth_table = 150, minHeight_table = 40, minIntersect_table = 4):
@@ -20,8 +85,8 @@ def tableDetection(img_binary, minWidth_table = 150, minHeight_table = 40, minIn
     kernelX_length = max(img_binaryX // 8, 60) ##find the largest values of both the width and height of the table
     kernelY_length = max(img_binaryY // 40, 25)
     
-    kernelX = cv2.getStructuringElement(cv2.MORPH_RECT, (kernelX_length), 1)    ##create kernel for both width and height using the max() values that we got before
-    kernelY = cv2.getStructuringElement(cv2.MORPH_RECT, 1 ,(kernelY_length))
+    kernelX = cv2.getStructuringElement(cv2.MORPH_RECT, (kernelX_length, 1))    ##create kernel for both width and height using the max() values that we got before
+    kernelY = cv2.getStructuringElement(cv2.MORPH_RECT, (1 ,kernelY_length))
     
     linesX = cv2.morphologyEx(img_binary, cv2.MORPH_OPEN, kernelX)  ##remove the noise from the kernel for both width and height
     linesY = cv2.morphologyEx(img_binary, cv2.MORPH_OPEN, kernelY)
@@ -30,10 +95,10 @@ def tableDetection(img_binary, minWidth_table = 150, minHeight_table = 40, minIn
     
     ##dilates all the table border lines so that they all merge into one region creating an intersection
     tableline_mask = cv2.bitwise_or(linesX, linesY)
-    kernelmerge = cv2.getStructuringElement(cv2.MORPH_RECT, 15,15)
+    kernelmerge = cv2.getStructuringElement(cv2.MORPH_RECT, (15,15))
     tableline_mask = cv2.dilate(tableline_mask, kernelmerge, iterations=2)
     
-    tablecontours = cv2.findCountours(tableline_mask, cv2.RETR.EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    tablecontours, _ = cv2.findContours(tableline_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
     tableBoxes = []
     for i in tablecontours:
@@ -42,7 +107,7 @@ def tableDetection(img_binary, minWidth_table = 150, minHeight_table = 40, minIn
             continue
         ## confirmation that the lines actually do intersect so that paragraph text isnt accidentally removed in the final process
         region = intersect[y:y + h, x:x + w]
-        nPoints = cv2.connectedComponentsWithStats(region, connectingSections=8)[0] - 1
+        nPoints = cv2.connectedComponentsWithStats(region, connectivity=8)[0] - 1
         
         if nPoints >= minIntersect_table:
             tableBoxes.append((x,y,x + w,y + h))
@@ -51,9 +116,110 @@ def tableDetection(img_binary, minWidth_table = 150, minHeight_table = 40, minIn
 
 
 ##func for detecting images in papers
+def imageDetection(img_binary, minWidth_image=200, minHeight_image=100, minArea_image=30000):
+
+    kernel = cv2.getStructuringElement(
+        cv2.MORPH_RECT,
+        (15, 15)
+    )
+
+    merged = cv2.dilate(
+        img_binary,
+        kernel,
+        iterations=2
+    )
+
+    contours, _ = cv2.findContours(
+        merged,
+        cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    imageBoxes = []
+
+    for contour in contours:
+
+        x, y, w, h = cv2.boundingRect(contour)
+
+        if w < minWidth_image or h < minHeight_image:
+            continue
+
+        if w * h < minArea_image:
+            continue
+
+        region = img_binary[y:y+h, x:x+w]
+
+        row_projection = np.sum(region, axis=1)
+
+        row_runs = findTextInPage(
+            row_projection,
+            minGap = 2, 
+            minLengthofText = 2
+        )
+
+        # A very small number of row groups suggests
+        # the region is not ordinary paragraph text.
+        if len(row_runs) <= 2:
+            imageBoxes.append(
+                (x, y, x + w, y + h)
+            )
+            continue
+
+        gaps = []
+
+        for i in range(len(row_runs) - 1):
+            gap = (
+                row_runs[i + 1][0]
+                - row_runs[i][1]
+            )
+
+            gaps.append(gap)
+
+        if len(gaps) == 0:
+            continue
+
+        median_gap = np.median(gaps)
+
+        # Measure how consistently the gaps repeat
+        deviations = [
+            abs(gap - median_gap)
+            for gap in gaps
+        ]
+
+        mean_deviation = np.mean(deviations)
+
+        if median_gap > 0:
+            irregularity = (
+                mean_deviation / median_gap
+            )
+        else:
+            irregularity = 0
+
+        if (
+            len(row_runs) >= 3
+            and irregularity > 0.8
+        ):
+            imageBoxes.append(
+                (x, y, x + w, y + h)
+            )
+
+    return imageBoxes
+
 
 ##mask for tables and images
+def maskTablesandImages(binary, tableBoxes, imageBoxes):
+    
+    masked = binary.copy()
+    
+    ##mask tables
+    for x1, y1, x2, y2 in tableBoxes:
+        masked[y1:y2, x1:x2] = 0
+        
+    ##mask images
+    for x1, y1, x2, y2 in imageBoxes:
+        masked[y1:y2, x1:x2] = 0
 
+    return masked
 
 def pageToBinary(image_path): ##take a page from the folder and converts it to grayscale, then thresholds it to become a binary image for processing the text
     page = cv2.imread(image_path)
@@ -104,6 +270,9 @@ def colDetection(img_binary, minGap_col = 15, minLengthofText_col = 30):
     ##rowDetection() function works the same in theory with the colDetection() function where we take the sum of pixels in each row across a whole page and then put the values of the minimum gap length and height and put it in the findTextinPage() function to get our rows
 def rowDetection(coldetection_result, minGap_row = 2, minHeight_row = 4):
     imageProjection_row = np.sum(coldetection_result, axis = 1)
-    textRows = findTextInPage(imageProjection_row, minGap = minGap_row, minLengthofText = minHeight_row)
+    textRows = findTextInPage(imageProjection_row, minHeight_row, minGap_row)
     
     return textRows
+
+
+main()
