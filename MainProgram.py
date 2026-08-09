@@ -23,7 +23,7 @@ def main():
             print(f"Skipping {filename} (not found)")
             continue
         
-        boxes, binary = pageToBinary(path)
+        original, binary = pageToBinary(path)
         tableBoxes = tableDetection(binary)
         images = imageDetection(binary)
         
@@ -32,9 +32,6 @@ def main():
             tableBoxes,
             images
         )
-        
-        colresult = colDetection(binary)
-        rowresult = rowDetection(colresult)
 
         print("Detected tables:", tableBoxes)
 
@@ -77,6 +74,76 @@ def main():
         pt.title('Detected Images')
         pt.axis('off')
         pt.show()
+        
+        pt.figure(figsize=(10, 12))
+        pt.imshow(masked, cmap='gray')
+        pt.title('Binary Image After Table and Image Masking')
+        pt.axis('off')
+        pt.show()
+        
+        ##column detection after masking the image
+        columns = colDetection(masked)
+        print("Detected columns:", columns)
+        
+        ##row detection after masking the image
+        lines = rowDetection(masked, columns)
+        print("Detected lines:", lines)
+        
+        ##to be implemented (paragraph detection)
+        paragraphs = paragraphDetection(lines)
+        print("Detected paragraphs:", paragraphs)
+        
+        ##export paragraphs as individual images
+        page_name = os.path.splitext(filename)[0]
+
+        for paragraph_number, (x1, y1, x2, y2) in enumerate(paragraphs, start=1):
+    
+             ##add small padding around the paragraph
+             padding = 5
+    
+             x1 = max(x1 - padding, 0)
+             y1 = max(y1 - padding, 0)
+    
+             x2 = min(x2 + padding, original.shape[1])
+             y2 = min(y2 + padding, original.shape[0])
+    
+             ##Crop from original image
+             paragraph_image = original[y1:y2, x1:x2]
+    
+             ##Filename:
+             ##001_paragraph_01.png
+             output_path = os.path.join(output_dir, f"{page_name}_paragraph_{paragraph_number:02d}.png")
+    
+             cv2.imwrite(output_path, paragraph_image)
+    
+             print(
+                 f"Saved paragraph {paragraph_number}: "
+                 f"{output_path}"
+             ) 
+             
+        ##visualise final paragraph detection
+        pt.figure(figsize=(10, 12))
+
+        ##convert BGR to RGB for Matplotlib
+        original_rgb = cv2.cvtColor(original, cv2.COLOR_BGR2RGB)
+        
+        pt.imshow(original_rgb)
+        
+        for paragraph_number, (x1, y1, x2, y2) in enumerate(paragraphs, start=1):
+        
+            pt.gca().add_patch(
+                pt.Rectangle((x1, y1), x2 - x1, y2 - y1, fill=False, edgecolor='blue', linewidth=2))
+        
+            pt.text(x1, y1, str(paragraph_number), color='blue',fontsize=10)
+        
+        pt.title(
+            f"{filename} - Detected Paragraphs "
+            f"({len(paragraphs)})"
+        )
+        
+        pt.axis("off")
+        pt.show()
+        
 
 ##tables in the papers have long border lines so we dilate these so that all the lines merge into a single blob of black pixels in regardless of how far apart they are, and since paragraph text never has these long lines we can detect the tables from that
 def tableDetection(img_binary, minWidth_table = 150, minHeight_table = 40, minIntersect_table = 4):
