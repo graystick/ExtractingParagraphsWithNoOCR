@@ -13,7 +13,39 @@ from matplotlib import pyplot as pt
 def main():
     return True
 
-##func for detecting tables
+##tables in the papers have long border lines so we dilate these so that all the lines merge into a single blob of black pixels in regardless of how far apart they are, and since paragraph text never has these long lines we can detect the tables from that
+def tableDetection(img_binary, minWidth_table = 150, minHeight_table = 40, minIntersect_table = 4):
+    
+    img_binaryY, img_binaryX = img_binary.shape ##take the shape of the X(width) and Y(height) of the table
+    kernelX_length = max(img_binaryX // 8, 60) ##find the largest values of both the width and height of the table
+    kernelY_length = max(img_binaryY // 40, 25)
+    
+    kernelX = cv2.getStructuringElement(cv2.MORPH_RECT, (kernelX_length), 1)    ##create kernel for both width and height using the max() values that we got before
+    kernelY = cv2.getStructuringElement(cv2.MORPH_RECT, 1 ,(kernelY_length))
+    
+    linesX = cv2.morphologyEx(img_binary, cv2.MORPH_OPEN, kernelX)  ##remove the noise from the kernel for both width and height
+    linesY = cv2.morphologyEx(img_binary, cv2.MORPH_OPEN, kernelY)
+    
+    intersect = cv2.bitwise_and(linesX, linesY) 
+    tableline_mask = cv2.bitwise_or(linesX, linesY)
+    kernelmerge = cv2.getStructuringElement(cv2.MORPH_RECT, 15,15)
+    tableline_mask = cv2.dilate(tableline_mask, kernelmerge, iterations=2)
+    
+    tablecontours = cv2.findCountours(tableline_mask, cv2.RETR.EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    tableBoxes = []
+    for i in tablecontours:
+        x,y,w,h = cv2.boundingRect(i)
+        if w < minWidth_table or h < minHeight_table:
+            continue
+        region = intersect[y:y + h, x:x + w]
+        nPoints = cv2.connectedComponentsWithStats(region, connectingSections=8)[0] - 1
+        
+        if nPoints >= minIntersect_table:
+            tableBoxes.append((x,y,x + w,y + h))
+        
+    return tableBoxes
+
 
 ##func for detecting images in papers
 
