@@ -359,6 +359,7 @@ def groupLinestoParagraphs(textinpage, paragraph_gapF = 1.8):
     if len(textinpage) == 1:
         return[textinpage[0]]
     
+    ##the gaps betwewen end of one line and the start of the next line
     gaps = [textinpage[i + 1][0] - textinpage[i][1] for i in range(len(textinpage) -1)]
     gapMedian = np.median(gaps) if len(gaps) > 0 else 0
 
@@ -370,10 +371,11 @@ def groupLinestoParagraphs(textinpage, paragraph_gapF = 1.8):
         gap = textinpage[i][0] - textinpage[i-1][1]
         if gap > paragraph_gapF * max(gapMedian, 1):
             paragraphs.append((para_start, para_end))
+            ##if gap is unusually large the new paragraph starts here
             para_start = textinpage[i][0]
         para_end = textinpage[i][1]
         
-    paragraphs.append((para_start, para_end))
+    paragraphs.append((para_start, para_end)) ##append the last paragraph to the list
     return paragraphs
 
         
