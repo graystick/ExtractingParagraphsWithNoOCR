@@ -32,7 +32,7 @@ def main():
             tableBoxes,
             images
         )
-
+        
         print("Detected tables:", tableBoxes)
 
         pt.figure(figsize=(10, 12))
@@ -88,6 +88,8 @@ def main():
         ##row detection after masking the image
         lines = rowDetection(masked, columns)
         print("Detected lines:", lines)
+        
+        
         
         ##to be implemented (paragraph detection)
         paragraphs = paragraphDetection(lines)
@@ -234,6 +236,8 @@ def imageDetection(img_binary, minWidth_image=200, minHeight_image=100, minArea_
             minGap = 2, 
             minLengthofText = 2
         )
+        
+        print("paragraphed lines" , groupLinestoParagraphs(row_runs))
 
         # A very small number of row groups suggests
         # the region is not ordinary paragraph text.
@@ -353,7 +357,7 @@ def rowDetection(coldetection_result, minGap_row = 2, minHeight_row = 4):
     return textRows
 
 
-def groupLinestoParagraphs(textinpage, paragraph_gapF = 1.8):
+def groupLinestoParagraphs(textinpage, paragraph_gapF = 1.8): ##returns the start and end point of paragraphs
     if len(textinpage) == 0:
         return[]
     if len(textinpage) == 1:
@@ -376,10 +380,8 @@ def groupLinestoParagraphs(textinpage, paragraph_gapF = 1.8):
         para_end = textinpage[i][1]
         
     paragraphs.append((para_start, para_end)) ##append the last paragraph to the list
-    return paragraphs
+    return paragraphs 
 
-        
-    
     
 
 
