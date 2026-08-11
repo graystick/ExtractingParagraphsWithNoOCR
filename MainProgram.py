@@ -181,6 +181,17 @@ def tableDetection(img_binary, minWidth_table = 150, minHeight_table = 40, minIn
         
     return tableBoxes
 
+def boxOverlap(box_a, box_b, thresh=0.3):
+    ax1, ay1, ax2, ay2 = box_a
+    bx1, by1, bx2, by2 = box_b
+    ix1, iy1 = max(ax1, bx1), max(ay1, by1)
+    ix2, iy2 = max(ax2, bx2), min(ay2, by2)
+    if ix2 <= ix1 or iy2 <= iy1:
+        return False
+    intersectedArea = (ix2 - ix1) * (iy2 - iy1)
+    smallerArea = min((ax2 - ax1) * (ay2-ay1), (bx2-bx1) * (by2-by1))
+    return smallerArea >0 and (intersectedArea / smallerArea) > thresh
+
 
 ##func for detecting images in papers
 def imageDetection(img_binary, minWidth_image=200, minHeight_image=100, minArea_image=30000):
@@ -340,6 +351,34 @@ def rowDetection(coldetection_result, minGap_row = 2, minHeight_row = 4):
     textRows = findTextInPage(imageProjection_row, minHeight_row, minGap_row)
     
     return textRows
+
+
+def groupLinestoParagraphs(textinpage, paragraph_gapF = 1.8):
+    if len(textinpage) == 0:
+        return[]
+    if len(textinpage) == 1:
+        return[textinpage[0]]
+    
+    gaps = [textinpage[i + 1][0] - textinpage[i][1] for i in range(len(textinpage) -1)]
+    gapMedian = np.median(gaps) if len(gaps) > 0 else 0
+
+    paragraphs = []
+    para_start = textinpage[0][0]
+    para_end = textinpage[0][1]
+    
+    for i in range(1, len(textinpage)):
+        gap = textinpage[i][0] - textinpage[i-1][1]
+        if gap > paragraph_gapF * max(gapMedian, 1):
+            paragraphs.append((para_start, para_end))
+            para_start = textinpage[i][0]
+        para_end = textinpage[i][1]
+        
+    paragraphs.append((para_start, para_end))
+    return paragraphs
+
+        
+    
+    
 
 
 main()
