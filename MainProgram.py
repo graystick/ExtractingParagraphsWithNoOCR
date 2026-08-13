@@ -12,89 +12,121 @@ import os
 
 
 def main():
-    if __name__ == '__main__':
-        output_dir = 'paragraphs'
+    output_dir = 'paragraphs'
+    os.makedirs(output_dir, exist_ok=True)
 
     for i in range(1, 9):
+        input_dir = "images"
+
         filename = f"{i:03d}.png"
-        path = os.path.join(filename)
+        path = os.path.join(input_dir, filename)
+
+        print("\n" + "=" * 50)
+        print(f"STARTING: {filename}")
+        print("=" * 50)
 
         if not os.path.exists(path):
             print(f"Skipping {filename} (not found)")
             continue
         
         original, binary = pageToBinary(path)
+
+        print(f"[OK] {filename} loaded")
+        print(f"[INFO] Image size: {original.shape[1]} x {original.shape[0]}")
+
         tableBoxes = tableDetection(binary)
+
+        print(f"[TABLE] Detected {len(tableBoxes)} table(s)")
+        print(f"[TABLE] Boxes: {tableBoxes}")
+
         images = imageDetection(binary)
+
+        print(f"[IMAGE] Detected {len(images)} image(s)")
+        print(f"[IMAGE] Boxes: {images}")
         
-        masked = maskTablesandImages(
-            binary,
-            tableBoxes,
-            images
-        )
+        masked = maskTablesandImages(binary, tableBoxes,images)
+
+        print("[MASK] Tables and images masked successfully")
         
         print("Detected tables:", tableBoxes)
-
-        pt.figure(figsize=(10, 12))
-        pt.imshow(binary, cmap='gray')
-
-        for x1, y1, x2, y2 in tableBoxes:
-            pt.gca().add_patch(
-                pt.Rectangle(
-                    (x1, y1),
-                    x2 - x1,
-                    y2 - y1,
-                    fill=False,
-                    edgecolor='red',
-                    linewidth=2
-                )
-            )
-
-        pt.title('Detected Tables')
-        pt.axis('off')
-        pt.show()
-
-        print("Detected images:", images)
-
-        pt.figure(figsize=(10, 12))
-        pt.imshow(binary, cmap='gray')
-
-        for x1, y1, x2, y2 in images:
-            pt.gca().add_patch(
-                pt.Rectangle(
-                    (x1, y1),
-                    x2 - x1,
-                    y2 - y1,
-                    fill=False,
-                    edgecolor='blue',
-                    linewidth=2
-                )
-            )
-
-        pt.title('Detected Images')
-        pt.axis('off')
-        pt.show()
         
-        pt.figure(figsize=(10, 12))
-        pt.imshow(masked, cmap='gray')
-        pt.title('Binary Image After Table and Image Masking')
-        pt.axis('off')
-        pt.show()
-        
-        ##column detection after masking the image
+        ##detect columns
         columns = colDetection(masked)
-        print("Detected columns:", columns)
-        
-        ##row detection after masking the image
-        lines = rowDetection(masked, columns)
-        print("Detected lines:", lines)
-        
-        
-        
-        ##to be implemented (paragraph detection)
-        paragraphs = paragraphDetection(lines)
+
+        print(f"[COLUMN] Detected {len(columns)} column(s)")
+
+        for column_number, (x1, x2) in enumerate(
+            columns,
+            start=1
+        ):
+            print(
+                f"[COLUMN] Column {column_number}: "
+                f"x={x1} -> {x2}, "
+                f"width={x2 - x1}"
+            )
+
+        ##store all paragraphs from all columns
+        paragraphs = []
+
+        ##process each column separately
+        for column_number, (x1, x2) in enumerate(columns, start=1):
+
+            print(
+                f"\n[PROCESSING COLUMN] "
+                f"{column_number}/{len(columns)}"
+            )
+
+            ##crop this column from the masked image
+            column_image = masked[:, x1:x2]
+
+            print(
+                f"[COLUMN IMAGE] "
+                f"Width: {column_image.shape[1]}, "
+                f"Height: {column_image.shape[0]}"
+            )
+
+            ##detect rows only inside this column
+            lines = rowDetection(column_image)
+
+            print(
+                f"[ROWS] Column {column_number}: "
+                f"{len(lines)} row(s) detected"
+            )
+
+            print(
+                f"[ROWS] {lines}"
+            )
+
+            ##group lines into paragraphs
+            column_paragraphs = groupLinestoParagraphs(lines)
+
+            print(
+                f"[PARAGRAPHS] Column {column_number}: "
+                f"{len(column_paragraphs)} paragraph(s)"
+            )
+
+            print(
+                f"[PARAGRAPHS] {column_paragraphs}"
+            )
+
+            ##convert column-local coordinates back to full-page coordinates
+            for y1, y2 in column_paragraphs:
+                paragraphs.append((x1, y1, x2, y2))
+
+        ##sort paragraphs from left to right, and top to bottom within each column
+        paragraphs.sort(key=lambda box: (box[0], box[1]))
+
+        print(
+            f"\n[TOTAL] {filename}: "
+            f"{len(paragraphs)} paragraph(s) detected"
+        )
+
+        print(
+            f"[TOTAL] Paragraph boxes: {paragraphs}"
+        )
+
         print("Detected paragraphs:", paragraphs)
-        
+
         ##export paragraphs as individual images
         page_name = os.path.splitext(filename)[0]
 
@@ -122,29 +154,14 @@ def main():
                  f"Saved paragraph {paragraph_number}: "
                  f"{output_path}"
              ) 
-             
-        ##visualise final paragraph detection
-        pt.figure(figsize=(10, 12))
 
-        ##convert BGR to RGB for Matplotlib
-        original_rgb = cv2.cvtColor(original, cv2.COLOR_BGR2RGB)
-        
-        pt.imshow(original_rgb)
-        
-        for paragraph_number, (x1, y1, x2, y2) in enumerate(paragraphs, start=1):
-        
-            pt.gca().add_patch(
-                pt.Rectangle((x1, y1), x2 - x1, y2 - y1, fill=False, edgecolor='blue', linewidth=2))
-        
-            pt.text(x1, y1, str(paragraph_number), color='blue',fontsize=10)
-        
-        pt.title(
-            f"{filename} - Detected Paragraphs "
-            f"({len(paragraphs)})"
+        print(
+            f"\n[FINISHED] {filename}"
         )
-        
-        pt.axis("off")
-        pt.show()
+
+    print("\n" + "=" * 50)
+    print("ALL 8 IMAGES FINISHED")
+    print("=" * 50)
         
 
 ##tables in the papers have long border lines so we dilate these so that all the lines merge into a single blob of black pixels in regardless of how far apart they are, and since paragraph text never has these long lines we can detect the tables from that
@@ -239,54 +256,13 @@ def imageDetection(img_binary, minWidth_image=200, minHeight_image=100, minArea_
         
         print("paragraphed lines" , groupLinestoParagraphs(row_runs))
 
-        # A very small number of row groups suggests
-        # the region is not ordinary paragraph text.
+        ##a very small number of row groups suggests the region is not ordinary paragraph text.
         if len(row_runs) <= 2:
-            imageBoxes.append(
-                (x, y, x + w, y + h)
-            )
-            continue
-
-        gaps = []
-
-        for i in range(len(row_runs) - 1):
-            gap = (
-                row_runs[i + 1][0]
-                - row_runs[i][1]
-            )
-
-            gaps.append(gap)
-
-        if len(gaps) == 0:
-            continue
-
-        median_gap = np.median(gaps)
-
-        # Measure how consistently the gaps repeat
-        deviations = [
-            abs(gap - median_gap)
-            for gap in gaps
-        ]
-
-        mean_deviation = np.mean(deviations)
-
-        if median_gap > 0:
-            irregularity = (
-                mean_deviation / median_gap
-            )
-        else:
-            irregularity = 0
-
-        if (
-            len(row_runs) >= 3
-            and irregularity > 0.8
-        ):
             imageBoxes.append(
                 (x, y, x + w, y + h)
             )
 
     return imageBoxes
-
 
 ##mask for tables and images
 def maskTablesandImages(binary, tableBoxes, imageBoxes):
@@ -341,21 +317,19 @@ def findTextInPage(hist_TextBlock, minGap = 1, minLengthofText = 1):
 
     return textBlocks_SE
 
-def colDetection(img_binary, minGap_col = 15, minLengthofText_col = 30):
+def colDetection(img_binary, minGap_col=30, minLengthofText_col=100):
     imageProjection_col = np.sum(img_binary, axis=0) ##sum of pixels in each column across a whole page
     
     textColumns = findTextInPage(imageProjection_col, minGap =minGap_col, minLengthofText = minLengthofText_col) ##polymorph the columns width and gap into the findTextinPage function
     
     return textColumns ##uses the findTextinPage function to get the column width and gap
 
-
-    ##rowDetection() function works the same in theory with the colDetection() function where we take the sum of pixels in each row across a whole page and then put the values of the minimum gap length and height and put it in the findTextinPage() function to get our rows
+##rowDetection() function works the same in theory with the colDetection() function where we take the sum of pixels in each row across a whole page and then put the values of the minimum gap length and height and put it in the findTextinPage() function to get our rows
 def rowDetection(coldetection_result, minGap_row = 2, minHeight_row = 4):
     imageProjection_row = np.sum(coldetection_result, axis = 1)
-    textRows = findTextInPage(imageProjection_row, minHeight_row, minGap_row)
+    textRows = findTextInPage(imageProjection_row, minGap_row, minHeight_row)
     
     return textRows
-
 
 def groupLinestoParagraphs(textinpage, paragraph_gapF = 1.8): ##returns the start and end point of paragraphs
     if len(textinpage) == 0:
@@ -382,7 +356,5 @@ def groupLinestoParagraphs(textinpage, paragraph_gapF = 1.8): ##returns the star
     paragraphs.append((para_start, para_end)) ##append the last paragraph to the list
     return paragraphs 
 
-    
-
-
-main()
+if __name__ == "__main__":
+    main()
