@@ -168,7 +168,7 @@ def main():
 def tableDetection(img_binary, minWidth_table = 150, minHeight_table = 40, minIntersect_table = 4):
     
     img_binaryY, img_binaryX = img_binary.shape ##take the shape of the X(width) and Y(height) of the table
-    kernelX_length = max(img_binaryX // 8, 60) ##find the largest values of both the width and height of the table
+    kernelX_length = max(img_binaryX // 8, 60) ##takes the images height and width from the binary image and calculates how long and high the kernel should be, values are not hardcoded in for adaptability
     kernelY_length = max(img_binaryY // 40, 25)
     
     kernelX = cv2.getStructuringElement(cv2.MORPH_RECT, (kernelX_length, 1))    ##create kernel for both width and height using the max() values that we got before
