@@ -315,6 +315,7 @@ def colDetection(img_binary, minGap_col=30, minLengthofText_col=100):
 ##rowDetection() function works the same in theory with the colDetection() function where we take the sum of pixels in each row across a whole page and then put the values of the minimum gap length and height and put it in the findTextinPage() function to get our rows
 def rowDetection(coldetection_result, minGap_row = 2, minHeight_row = 4):
     imageProjection_row = np.sum(coldetection_result, axis = 1)
+    
     textRows = findTextInPage(imageProjection_row, minGap_row, minHeight_row)
     
     return textRows
